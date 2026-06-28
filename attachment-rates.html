@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attachment Rates — Markson's Dashboard</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="../data.js"></script>
+  <style>
+    .data-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: Arial, sans-serif; font-size: 11px; font-weight: 600;
+      color: #166534; background: #dcfce7; padding: 3px 10px;
+      border-radius: 20px; letter-spacing: .04em;
+    }
+    .data-badge::before { content: '●'; font-size: 8px; }
+  </style>
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-mark">M</span>
+      <span class="logo-text">Markson's</span>
+    </div>
+    <ul class="nav-links">
+      <li class="nav-item">
+        <a href="../index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Home
+        </a>
+      </li>
+      <li class="nav-item active">
+        <a href="index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Reports
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div class="page-eyebrow">Reports › Sales performance</div>
+      <button class="print-btn" onclick="window.print()" style="float:right;margin-top:-4px">Print / export</button>
+      <h1 class="page-title">Attachment Rates</h1>
+      <div class="page-meta">
+        <span id="date-range-label" style="color:var(--ink-3);font-style:italic;"></span>
+        <span class="data-badge" id="data-badge"></span>
+      </div>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:28px;">
+      <button class="toolbar-btn" data-range="tw">This week</button>
+      <button class="toolbar-btn" data-range="lw">Last week</button>
+      <button class="toolbar-btn" data-range="mtd">MTD</button>
+      <button class="toolbar-btn" data-range="lm">Last month</button>
+      <button class="toolbar-btn active" data-range="all">All data</button>
+      <div class="toolbar-sep"></div>
+      <input type="date" id="date-from" class="date-input">
+      <span style="font-family:Arial;font-size:12px;color:var(--ink-3)">to</span>
+      <input type="date" id="date-to" class="date-input">
+      <button class="toolbar-btn" id="apply-custom">Apply</button>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Total sales</div>
+        <div class="card-value" id="card-sales">—</div>
+        <div class="card-sub" id="card-sales-sub">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Delivery attachment</div>
+        <div class="card-value" id="card-delivery">—</div>
+        <div class="card-sub" id="card-delivery-sub">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Protection attachment</div>
+        <div class="card-value" id="card-protection">—</div>
+        <div class="card-sub" id="card-protection-sub">—</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Full breakdown</div>
+      <div class="section-note">Total sales includes delivery and protection plan dollars.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Salesperson</th><th>Total sales</th><th>Avg sale</th>
+            <th>Profit %</th><th>Delivery attachment</th><th>Protection attachment</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+        <tfoot id="table-foot"></tfoot>
+      </table>
+    </div>
+
+    <div class="section page-break">
+      <div class="section-label">Attachment rates by salesperson</div>
+      <div class="chart-grid">
+        <div class="chart-box">
+          <div class="chart-title">Delivery attachment %</div>
+          <div class="chart-wrap"><canvas id="chargesBar"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Protection attachment %</div>
+          <div class="chart-wrap"><canvas id="protectionBar"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-box-wide">
+        <div class="chart-title">Delivery vs. protection — side by side</div>
+        <div class="chart-wrap-wide"><canvas id="groupedBar"></canvas></div>
+      </div>
+      <div class="chart-box-wide">
+        <div class="chart-title">Invoice breakdown by attachment type</div>
+        <div class="chart-wrap-wide"><canvas id="stackedBar"></canvas></div>
+      </div>
+    </div>
+  </main>
+
+<script>
+const rule='#e2e1db', bluePale='#93c5fd', blueBase='#1a56db', greenPale='#99f6e4';
+let charts={}, activeRange='all';
+
+const allOrders = PRELOADED_DATA.orders.map(o=>({...o,date:o.date?new Date(o.date):null}));
+document.getElementById('data-badge').textContent = PRELOADED_DATA.period;
+
+function getWeekBounds(offset=0){const now=new Date(),monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7)+offset*7);const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);monday.setHours(0,0,0,0);sunday.setHours(23,59,59,999);return[monday,sunday];}
+function getMonthBounds(offset=0){const now=new Date(),y=now.getFullYear(),m=now.getMonth()+offset;return[new Date(y,m,1),new Date(y,m+1,0,23,59,59,999)];}
+function getRangeDates(r){const now=new Date();switch(r){case'tw':return getWeekBounds(0);case'lw':return getWeekBounds(-1);case'mtd':return[new Date(now.getFullYear(),now.getMonth(),1),now];case'lm':return getMonthBounds(-1);default:return[null,null];}}
+function filterOrders(orders,from,to){if(!from&&!to)return orders;return orders.filter(o=>{if(!o.date)return true;if(from&&o.date<from)return false;if(to&&o.date>to)return false;return true;});}
+function fmt(n){return'$'+Math.round(n).toLocaleString();}
+function fmtPct(n){return n.toFixed(1)+'%';}
+function fmtDate(d){return d?d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';} 
+
+function summarize(orders){
+  const sp={};
+  for(const o of orders){
+    if(!sp[o.name])sp[o.name]={name:o.name,sales:0,charges:0,protection:0,grossProfit:0,merchAmount:0,invoices:0,chargeInv:0,protInv:0};
+    const s=sp[o.name];
+    s.sales+=o.sales;s.charges+=o.charges;s.protection+=o.protection;
+    s.grossProfit+=o.grossProfit;s.merchAmount+=o.merchAmount;s.invoices+=1;
+    if(o.charges>0)s.chargeInv+=1;if(o.protection>0)s.protInv+=1;
+  }
+  return Object.values(sp).map(s=>({...s,
+    totalSales:s.sales+s.charges+s.protection,
+    avgSale:(s.sales+s.charges+s.protection)/s.invoices,
+    profitPct:s.merchAmount?(s.grossProfit/s.merchAmount*100):0,
+    deliveryRate:s.invoices?(s.chargeInv/s.invoices*100):0,
+    protRate:s.invoices?(s.protInv/s.invoices*100):0,
+  })).sort((a,b)=>b.sales-a.sales);
+}
+
+function render(){
+  let from=null,to=null;
+  if(activeRange==='custom'){
+    const fv=document.getElementById('date-from').value,tv=document.getElementById('date-to').value;
+    if(fv){from=new Date(fv);from.setHours(0,0,0,0);}
+    if(tv){to=new Date(tv);to.setHours(23,59,59,999);}
+  }else if(activeRange!=='all'){[from,to]=getRangeDates(activeRange);}
+
+  const filtered=filterOrders(allOrders,from,to);
+  const data=summarize(filtered);
+  const dates=filtered.filter(o=>o.date).map(o=>o.date);
+  if(dates.length){const minD=new Date(Math.min(...dates)),maxD=new Date(Math.max(...dates));document.getElementById('date-range-label').textContent=`${fmtDate(minD)} – ${fmtDate(maxD)}`;}
+  else document.getElementById('date-range-label').textContent='All available data';
+
+  const totSales=data.reduce((a,d)=>a+d.totalSales,0);
+  const totInv=data.reduce((a,d)=>a+d.invoices,0);
+  const totCI=data.reduce((a,d)=>a+d.chargeInv,0);
+  const totPI=data.reduce((a,d)=>a+d.protInv,0);
+  const totGP=data.reduce((a,d)=>a+d.grossProfit,0);
+  const totM=data.reduce((a,d)=>a+d.merchAmount,0);
+  const totDR=totInv?(totCI/totInv*100):0;
+  const totPR=totInv?(totPI/totInv*100):0;
+
+  document.getElementById('card-sales').textContent=fmt(totSales);
+  document.getElementById('card-sales-sub').textContent=`${data.length} salespeople · ${totInv.toLocaleString()} invoices`;
+  document.getElementById('card-delivery').textContent=fmtPct(totDR);
+  document.getElementById('card-delivery-sub').textContent=`${totCI} of ${totInv} invoices`;
+  document.getElementById('card-protection').textContent=fmtPct(totPR);
+  document.getElementById('card-protection-sub').textContent=`${totPI} of ${totInv} invoices`;
+
+  const tbody=document.getElementById('table-body');
+  tbody.innerHTML='';
+  data.forEach(d=>{
+    const dp=d.deliveryRate>=totDR?'pill-blue':'pill-red';
+    const pp=d.protRate>=totPR?'pill-blue':'pill-red';
+    tbody.innerHTML+=`<tr><td>${d.name}</td><td>${fmt(d.totalSales)}</td><td>${fmt(d.avgSale)}</td><td>${d.profitPct.toFixed(1)}%</td><td><span class="pill ${dp}">${fmtPct(d.deliveryRate)}</span></td><td><span class="pill ${pp}">${fmtPct(d.protRate)}</span></td></tr>`;
+  });
+  const tpp=totM?(totGP/totM*100):0;
+  document.getElementById('table-foot').innerHTML=`<tr><td>Total</td><td>${fmt(totSales)}</td><td>${fmt(totInv?totSales/totInv:0)}</td><td>${tpp.toFixed(1)}%</td><td>${fmtPct(totDR)}</td><td>${fmtPct(totPR)}</td></tr>`;
+
+  const nm=data.map(d=>d.name),dr=data.map(d=>d.deliveryRate),pr=data.map(d=>d.protRate);
+  const inv=data.map(d=>d.invoices),ci=data.map(d=>d.chargeInv),pi=data.map(d=>d.protInv);
+
+  Chart.defaults.font.family='Arial, sans-serif';Chart.defaults.color='#5a5a56';
+  const destroy=id=>{if(charts[id])charts[id].destroy();};
+  const hO=max=>({indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.x.toFixed(1)+'%'}}},scales:{x:{max,grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{callback:v=>v+'%',font:{size:11}}},y:{grid:{display:false},border:{display:false},ticks:{font:{size:12}}}}});
+
+  destroy('chargesBar');
+  charts['chargesBar']=new Chart(document.getElementById('chargesBar'),{type:'bar',data:{labels:nm,datasets:[{data:dr,backgroundColor:bluePale,borderRadius:3,barThickness:14}]},options:hO(Math.max(70,Math.ceil(Math.max(...dr)/10)*10+10))});
+  destroy('protectionBar');
+  charts['protectionBar']=new Chart(document.getElementById('protectionBar'),{type:'bar',data:{labels:nm,datasets:[{data:pr,backgroundColor:greenPale,borderRadius:3,barThickness:14}]},options:hO(Math.max(60,Math.ceil(Math.max(...pr)/10)*10+10))});
+  destroy('groupedBar');
+  charts['groupedBar']=new Chart(document.getElementById('groupedBar'),{type:'bar',data:{labels:nm,datasets:[{label:'Delivery %',data:dr,backgroundColor:bluePale,borderRadius:3,barThickness:12},{label:'Protection %',data:pr,backgroundColor:greenPale,borderRadius:3,barThickness:12}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:16}},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y.toFixed(1)+'%'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{font:{size:11}}},y:{grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{callback:v=>v+'%',font:{size:11}}}}}});
+  destroy('stackedBar');
+  charts['stackedBar']=new Chart(document.getElementById('stackedBar'),{type:'bar',data:{labels:nm,datasets:[{label:'Neither',data:inv.map((v,i)=>v-ci[i]-pi[i]+Math.min(ci[i],pi[i])),backgroundColor:'#e2e1db',stack:'s'},{label:'Delivery only',data:ci.map((c,i)=>c-Math.min(c,pi[i])),backgroundColor:bluePale,stack:'s'},{label:'Protection only',data:pi.map((p,i)=>p-Math.min(p,ci[i])),backgroundColor:greenPale,stack:'s'},{label:'Both',data:nm.map((_,i)=>Math.min(ci[i],pi[i])),backgroundColor:blueBase,stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:12}},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y+' invoices'}}},scales:{x:{stacked:true,grid:{display:false},border:{display:false},ticks:{font:{size:11}}},y:{stacked:true,grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{font:{size:11}}}}}});
+}
+
+document.querySelectorAll('.toolbar-btn[data-range]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.toolbar-btn[data-range]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');activeRange=btn.dataset.range;
+    document.getElementById('date-from').value='';document.getElementById('date-to').value='';
+    render();
+  });
+});
+document.getElementById('apply-custom').addEventListener('click',()=>{
+  const fv=document.getElementById('date-from').value,tv=document.getElementById('date-to').value;
+  if(!fv&&!tv)return;
+  document.querySelectorAll('.toolbar-btn[data-range]').forEach(b=>b.classList.remove('active'));
+  activeRange='custom';render();
+});
+
+render();
+</script>
+</body>
+</html>
