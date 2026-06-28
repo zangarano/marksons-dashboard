@@ -6,15 +6,15 @@
   <title>Attachment Rates — Markson's Dashboard</title>
   <link rel="stylesheet" href="../css/global.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="../data.js"></script>
   <style>
-    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
-    .file-label { font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
-    #report-body { display: none; }
-    .no-data {
-      font-family: Arial, sans-serif; font-size: 14px; color: var(--ink-3);
-      text-align: center; padding: 60px 0;
+    .data-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: Arial, sans-serif; font-size: 11px; font-weight: 600;
+      color: #166534; background: #dcfce7; padding: 3px 10px;
+      border-radius: 20px; letter-spacing: .04em;
     }
+    .data-badge::before { content: '●'; font-size: 8px; }
   </style>
 </head>
 <body>
@@ -40,508 +40,191 @@
   </nav>
 
   <main class="main-content">
-
-    <!-- Header -->
     <div class="page-header">
-      <div class="page-eyebrow">Reports &rsaquo; Sales performance</div>
+      <div class="page-eyebrow">Reports › Sales performance</div>
       <button class="print-btn" onclick="window.print()" style="float:right;margin-top:-4px">Print / export</button>
       <h1 class="page-title">Attachment Rates</h1>
       <div class="page-meta">
-        <span id="date-range-label" style="color:var(--ink-3);font-style:italic;">Upload files to begin</span>
+        <span id="date-range-label" style="color:var(--ink-3);font-style:italic;"></span>
+        <span class="data-badge" id="data-badge"></span>
       </div>
     </div>
 
-    <!-- Upload -->
-    <div class="upload-grid" id="upload-section">
-      <div>
-        <div class="file-label">Storis — Report Written Sales Dollars</div>
-        <label class="upload-zone" id="storis-zone">
-          <input type="file" id="storis-file" accept=".xlsx,.xls">
-          <div class="upload-title">Click to upload Storis export</div>
-          <div class="upload-sub">.xlsx file</div>
-          <div class="upload-status" id="storis-status"></div>
-        </label>
+    <div class="toolbar" style="margin-bottom:28px;">
+      <button class="toolbar-btn" data-range="tw">This week</button>
+      <button class="toolbar-btn" data-range="lw">Last week</button>
+      <button class="toolbar-btn" data-range="mtd">MTD</button>
+      <button class="toolbar-btn" data-range="lm">Last month</button>
+      <button class="toolbar-btn active" data-range="all">All data</button>
+      <div class="toolbar-sep"></div>
+      <input type="date" id="date-from" class="date-input">
+      <span style="font-family:Arial;font-size:12px;color:var(--ink-3)">to</span>
+      <input type="date" id="date-to" class="date-input">
+      <button class="toolbar-btn" id="apply-custom">Apply</button>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Total sales</div>
+        <div class="card-value" id="card-sales">—</div>
+        <div class="card-sub" id="card-sales-sub">—</div>
       </div>
-      <div>
-        <div class="file-label">Trax — Salespeople Export</div>
-        <label class="upload-zone" id="trax-zone">
-          <input type="file" id="trax-file" accept=".xlsx,.xls">
-          <div class="upload-title">Click to upload Trax export</div>
-          <div class="upload-sub">.xlsx file</div>
-          <div class="upload-status" id="trax-status"></div>
-        </label>
+      <div class="card">
+        <div class="card-label">Delivery attachment</div>
+        <div class="card-value" id="card-delivery">—</div>
+        <div class="card-sub" id="card-delivery-sub">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Protection attachment</div>
+        <div class="card-value" id="card-protection">—</div>
+        <div class="card-sub" id="card-protection-sub">—</div>
       </div>
     </div>
 
-    <!-- Date filter toolbar -->
-    <div id="report-body">
-      <div class="toolbar" style="margin-bottom:28px;">
-        <button class="toolbar-btn" data-range="tw">This week</button>
-        <button class="toolbar-btn" data-range="lw">Last week</button>
-        <button class="toolbar-btn" data-range="mtd">MTD</button>
-        <button class="toolbar-btn" data-range="lm">Last month</button>
-        <button class="toolbar-btn active" data-range="all">All data</button>
-        <div class="toolbar-sep"></div>
-        <input type="date" id="date-from" class="date-input">
-        <span style="font-family:Arial;font-size:12px;color:var(--ink-3)">to</span>
-        <input type="date" id="date-to" class="date-input">
-        <button class="toolbar-btn" id="apply-custom">Apply</button>
-      </div>
-
-      <!-- Summary cards -->
-      <div class="cards">
-        <div class="card">
-          <div class="card-label">Total sales</div>
-          <div class="card-value" id="card-sales">—</div>
-          <div class="card-sub" id="card-sales-sub">—</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Delivery attachment</div>
-          <div class="card-value" id="card-delivery">—</div>
-          <div class="card-sub" id="card-delivery-sub">—</div>
-        </div>
-        <div class="card">
-          <div class="card-label">Protection attachment</div>
-          <div class="card-value" id="card-protection">—</div>
-          <div class="card-sub" id="card-protection-sub">—</div>
-        </div>
-      </div>
-
-      <!-- Full breakdown table -->
-      <div class="section">
-        <div class="section-label">Full breakdown</div>
-        <div class="section-note">Total sales includes delivery and protection plan dollars.</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Salesperson</th>
-              <th>Total sales</th>
-              <th>Avg sale</th>
-              <th>Profit %</th>
-              <th>Delivery attachment</th>
-              <th>Protection attachment</th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-          <tfoot id="table-foot"></tfoot>
-        </table>
-      </div>
-
-      <!-- Charts -->
-      <div class="section page-break">
-        <div class="section-label">Attachment rates by salesperson</div>
-        <div class="chart-grid">
-          <div class="chart-box">
-            <div class="chart-title">Delivery attachment %</div>
-            <div class="chart-wrap"><canvas id="chargesBar"></canvas></div>
-          </div>
-          <div class="chart-box">
-            <div class="chart-title">Protection attachment %</div>
-            <div class="chart-wrap"><canvas id="protectionBar"></canvas></div>
-          </div>
-        </div>
-        <div class="chart-box-wide">
-          <div class="chart-title">Delivery vs. protection — side by side</div>
-          <div class="chart-wrap-wide"><canvas id="groupedBar"></canvas></div>
-        </div>
-        <div class="chart-box-wide">
-          <div class="chart-title">Invoice breakdown by attachment type</div>
-          <div class="chart-wrap-wide"><canvas id="stackedBar"></canvas></div>
-        </div>
-      </div>
+    <div class="section">
+      <div class="section-label">Full breakdown</div>
+      <div class="section-note">Total sales includes delivery and protection plan dollars.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Salesperson</th><th>Total sales</th><th>Avg sale</th>
+            <th>Profit %</th><th>Delivery attachment</th><th>Protection attachment</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+        <tfoot id="table-foot"></tfoot>
+      </table>
     </div>
 
+    <div class="section page-break">
+      <div class="section-label">Attachment rates by salesperson</div>
+      <div class="chart-grid">
+        <div class="chart-box">
+          <div class="chart-title">Delivery attachment %</div>
+          <div class="chart-wrap"><canvas id="chargesBar"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Protection attachment %</div>
+          <div class="chart-wrap"><canvas id="protectionBar"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-box-wide">
+        <div class="chart-title">Delivery vs. protection — side by side</div>
+        <div class="chart-wrap-wide"><canvas id="groupedBar"></canvas></div>
+      </div>
+      <div class="chart-box-wide">
+        <div class="chart-title">Invoice breakdown by attachment type</div>
+        <div class="chart-wrap-wide"><canvas id="stackedBar"></canvas></div>
+      </div>
+    </div>
   </main>
 
 <script>
-// ── Constants ──────────────────────────────────────────────────────────────
-const NAME_MAP = {CC:'Chris',MG:'Marie',ND:'Nicole',RL:'Rachel',BKB:'Barbara',ZA:'Zach',DA:'Dave',WEB:'Online'};
-const VALID_SP = Object.keys(NAME_MAP);
-const rule = '#e2e1db';
-const bluePale = '#93c5fd', blueBase = '#1a56db';
-const greenPale = '#99f6e4';
+const rule='#e2e1db', bluePale='#93c5fd', blueBase='#1a56db', greenPale='#99f6e4';
+let charts={}, activeRange='all';
 
-// ── State ──────────────────────────────────────────────────────────────────
-let storisOrders = []; // [{orderNum, date, salesperson, sales, charges, protection, grossProfit, merchAmount}]
-let traxData = {};     // {Name: {ups, sales, convRate}}
-let charts = {};
-let activeRange = 'all';
+const allOrders = PRELOADED_DATA.orders.map(o=>({...o,date:o.date?new Date(o.date):null}));
+document.getElementById('data-badge').textContent = PRELOADED_DATA.period;
 
-// ── File upload handlers ───────────────────────────────────────────────────
-document.getElementById('storis-file').addEventListener('change', e => handleStoris(e.target.files[0]));
-document.getElementById('trax-file').addEventListener('change', e => handleTrax(e.target.files[0]));
+function getWeekBounds(offset=0){const now=new Date(),monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7)+offset*7);const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);monday.setHours(0,0,0,0);sunday.setHours(23,59,59,999);return[monday,sunday];}
+function getMonthBounds(offset=0){const now=new Date(),y=now.getFullYear(),m=now.getMonth()+offset;return[new Date(y,m,1),new Date(y,m+1,0,23,59,59,999)];}
+function getRangeDates(r){const now=new Date();switch(r){case'tw':return getWeekBounds(0);case'lw':return getWeekBounds(-1);case'mtd':return[new Date(now.getFullYear(),now.getMonth(),1),now];case'lm':return getMonthBounds(-1);default:return[null,null];}}
+function filterOrders(orders,from,to){if(!from&&!to)return orders;return orders.filter(o=>{if(!o.date)return true;if(from&&o.date<from)return false;if(to&&o.date>to)return false;return true;});}
+function fmt(n){return'$'+Math.round(n).toLocaleString();}
+function fmtPct(n){return n.toFixed(1)+'%';}
+function fmtDate(d){return d?d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';} 
 
-function handleStoris(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-
-    // Find header row
-    let hdrIdx = rows.findIndex(r => r.some(c => String(c).trim() === 'Qty'));
-    if (hdrIdx < 0) hdrIdx = 0;
-    const headers = rows[hdrIdx].map(c => String(c).trim());
-
-    const col = name => headers.findIndex(h => h === name || h.replace(/^\s+/,'') === name);
-    const iQty      = col('Qty') >= 0 ? col('Qty') : headers.findIndex(h => h.includes('Qty'));
-    const iPN       = headers.findIndex(h => h.includes('Product Number') || h === 'Product Number');
-    const iSP       = headers.findIndex(h => h.includes('Salespeople') || h === 'Salespeople');
-    const iON       = headers.findIndex(h => h.includes('Order Number') || h === 'Order Number');
-    const iDate     = headers.findIndex(h => h.includes('Order Date') || h === 'Order Date');
-    const iCharges  = headers.findIndex(h => h === 'Charges');
-    const iProt     = headers.findIndex(h => h.includes('Protection Plan Charges'));
-    const iTotal    = headers.findIndex(h => h === 'Total Order');
-    const iGP       = headers.findIndex(h => h === 'Gross Profit');
-    const iMerch    = headers.findIndex(h => h === 'Merch Amount');
-
-    const orders = {};  // keyed by orderNum
-    const spByOrder = {};
-
-    for (let i = hdrIdx + 1; i < rows.length; i++) {
-      const r = rows[i];
-      const qty = String(r[iQty] || '').trim();
-
-      // Product row — capture salesperson
-      if (iPN >= 0 && r[iPN] && String(r[iPN]).trim() !== '') {
-        const on = String(r[iON] || '').trim();
-        const sp = String(r[iSP] || '').trim();
-        if (on && !spByOrder[on]) spByOrder[on] = sp;
-      }
-
-      // Total row — capture financials
-      if (qty.startsWith('Total For Order')) {
-        const on = qty.replace('Total For Order', '').trim();
-        let date = null;
-        if (iDate >= 0 && r[iDate]) {
-          const d = r[iDate];
-          date = d instanceof Date ? d : new Date(d);
-          if (isNaN(date)) date = null;
-        }
-        orders[on] = {
-          orderNum: on,
-          date,
-          charges:    parseFloat(r[iCharges]) || 0,
-          protection: parseFloat(r[iProt])    || 0,
-          sales:      parseFloat(r[iTotal])   || 0,
-          grossProfit:parseFloat(r[iGP])      || 0,
-          merchAmount:parseFloat(r[iMerch])   || 0,
-        };
-      }
-    }
-
-    // Attach salesperson to orders; filter to valid codes
-    storisOrders = Object.values(orders).map(o => {
-      const rawSP = spByOrder[o.orderNum] || '';
-      const sp = rawSP.split(',')[0].trim();
-      return {...o, salesperson: sp, name: NAME_MAP[sp] || null};
-    }).filter(o => o.name);
-
-    // Try to get dates from order rows if Total rows didn't have them
-    // fallback: parse from product rows
-    if (storisOrders.every(o => !o.date)) {
-      // find date in product rows by order number
-      const dateByOrder = {};
-      for (let i = hdrIdx + 1; i < rows.length; i++) {
-        const r = rows[i];
-        if (iPN >= 0 && r[iPN] && String(r[iPN]).trim() !== '') {
-          const on = String(r[iON] || '').trim();
-          if (on && !dateByOrder[on] && iDate >= 0 && r[iDate]) {
-            const d = r[iDate];
-            const dt = d instanceof Date ? d : new Date(d);
-            if (!isNaN(dt)) dateByOrder[on] = dt;
-          }
-        }
-      }
-      storisOrders = storisOrders.map(o => ({...o, date: dateByOrder[o.orderNum] || null}));
-    }
-
-    document.getElementById('storis-status').textContent = `✓ ${storisOrders.length} orders loaded`;
-    document.getElementById('storis-zone').style.borderColor = '#16a34a';
-    tryRender();
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function handleTrax(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, {type:'array'});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-
-    // Find header row with 'Salesperson'
-    let hdrIdx = rows.findIndex(r => r.some(c => String(c).trim() === 'Salesperson'));
-    if (hdrIdx < 0) hdrIdx = 0;
-    const headers = rows[hdrIdx].map(c => String(c).trim());
-    const iName = headers.indexOf('Salesperson');
-    const iUps  = headers.indexOf('Ups');
-    const iSales= headers.indexOf('Sales');
-    const iConv = headers.indexOf('Conversion Rate');
-
-    traxData = {};
-    for (let i = hdrIdx + 1; i < rows.length; i++) {
-      const r = rows[i];
-      const name = String(r[iName] || '').trim();
-      if (!name || name === 'Salesperson') continue;
-      const ups  = parseFloat(r[iUps])  || 0;
-      const sales= parseFloat(r[iSales])|| 0;
-      const conv = parseFloat(r[iConv]) || 0;
-      if (ups > 0 || sales > 0) traxData[name] = {ups, sales, conv};
-    }
-
-    const count = Object.keys(traxData).length;
-    document.getElementById('trax-status').textContent = `✓ ${count} salespeople loaded`;
-    document.getElementById('trax-zone').style.borderColor = '#16a34a';
-    tryRender();
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// ── Date range helpers ─────────────────────────────────────────────────────
-function getWeekBounds(offset = 0) {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun
-  const monday = new Date(now); monday.setDate(now.getDate() - ((day + 6) % 7) + offset * 7);
-  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-  monday.setHours(0,0,0,0); sunday.setHours(23,59,59,999);
-  return [monday, sunday];
-}
-
-function getMonthBounds(offset = 0) {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth() + offset;
-  const start = new Date(y, m, 1);
-  const end   = new Date(y, m + 1, 0, 23, 59, 59, 999);
-  return [start, end];
-}
-
-function getRangeDates(range) {
-  const now = new Date();
-  switch(range) {
-    case 'tw':  return getWeekBounds(0);
-    case 'lw':  return getWeekBounds(-1);
-    case 'mtd': return [new Date(now.getFullYear(), now.getMonth(), 1), now];
-    case 'lm':  return getMonthBounds(-1);
-    case 'all': return [null, null];
-    default:    return [null, null];
+function summarize(orders){
+  const sp={};
+  for(const o of orders){
+    if(!sp[o.name])sp[o.name]={name:o.name,sales:0,charges:0,protection:0,grossProfit:0,merchAmount:0,invoices:0,chargeInv:0,protInv:0};
+    const s=sp[o.name];
+    s.sales+=o.sales;s.charges+=o.charges;s.protection+=o.protection;
+    s.grossProfit+=o.grossProfit;s.merchAmount+=o.merchAmount;s.invoices+=1;
+    if(o.charges>0)s.chargeInv+=1;if(o.protection>0)s.protInv+=1;
   }
+  return Object.values(sp).map(s=>({...s,
+    totalSales:s.sales+s.charges+s.protection,
+    avgSale:(s.sales+s.charges+s.protection)/s.invoices,
+    profitPct:s.merchAmount?(s.grossProfit/s.merchAmount*100):0,
+    deliveryRate:s.invoices?(s.chargeInv/s.invoices*100):0,
+    protRate:s.invoices?(s.protInv/s.invoices*100):0,
+  })).sort((a,b)=>b.sales-a.sales);
 }
 
-function filterOrders(orders, from, to) {
-  if (!from && !to) return orders;
-  return orders.filter(o => {
-    if (!o.date) return true; // include orders with no date
-    const d = o.date;
-    if (from && d < from) return false;
-    if (to   && d > to)   return false;
-    return true;
+function render(){
+  let from=null,to=null;
+  if(activeRange==='custom'){
+    const fv=document.getElementById('date-from').value,tv=document.getElementById('date-to').value;
+    if(fv){from=new Date(fv);from.setHours(0,0,0,0);}
+    if(tv){to=new Date(tv);to.setHours(23,59,59,999);}
+  }else if(activeRange!=='all'){[from,to]=getRangeDates(activeRange);}
+
+  const filtered=filterOrders(allOrders,from,to);
+  const data=summarize(filtered);
+  const dates=filtered.filter(o=>o.date).map(o=>o.date);
+  if(dates.length){const minD=new Date(Math.min(...dates)),maxD=new Date(Math.max(...dates));document.getElementById('date-range-label').textContent=`${fmtDate(minD)} – ${fmtDate(maxD)}`;}
+  else document.getElementById('date-range-label').textContent='All available data';
+
+  const totSales=data.reduce((a,d)=>a+d.totalSales,0);
+  const totInv=data.reduce((a,d)=>a+d.invoices,0);
+  const totCI=data.reduce((a,d)=>a+d.chargeInv,0);
+  const totPI=data.reduce((a,d)=>a+d.protInv,0);
+  const totGP=data.reduce((a,d)=>a+d.grossProfit,0);
+  const totM=data.reduce((a,d)=>a+d.merchAmount,0);
+  const totDR=totInv?(totCI/totInv*100):0;
+  const totPR=totInv?(totPI/totInv*100):0;
+
+  document.getElementById('card-sales').textContent=fmt(totSales);
+  document.getElementById('card-sales-sub').textContent=`${data.length} salespeople · ${totInv.toLocaleString()} invoices`;
+  document.getElementById('card-delivery').textContent=fmtPct(totDR);
+  document.getElementById('card-delivery-sub').textContent=`${totCI} of ${totInv} invoices`;
+  document.getElementById('card-protection').textContent=fmtPct(totPR);
+  document.getElementById('card-protection-sub').textContent=`${totPI} of ${totInv} invoices`;
+
+  const tbody=document.getElementById('table-body');
+  tbody.innerHTML='';
+  data.forEach(d=>{
+    const dp=d.deliveryRate>=totDR?'pill-blue':'pill-red';
+    const pp=d.protRate>=totPR?'pill-blue':'pill-red';
+    tbody.innerHTML+=`<tr><td>${d.name}</td><td>${fmt(d.totalSales)}</td><td>${fmt(d.avgSale)}</td><td>${d.profitPct.toFixed(1)}%</td><td><span class="pill ${dp}">${fmtPct(d.deliveryRate)}</span></td><td><span class="pill ${pp}">${fmtPct(d.protRate)}</span></td></tr>`;
   });
+  const tpp=totM?(totGP/totM*100):0;
+  document.getElementById('table-foot').innerHTML=`<tr><td>Total</td><td>${fmt(totSales)}</td><td>${fmt(totInv?totSales/totInv:0)}</td><td>${tpp.toFixed(1)}%</td><td>${fmtPct(totDR)}</td><td>${fmtPct(totPR)}</td></tr>`;
+
+  const nm=data.map(d=>d.name),dr=data.map(d=>d.deliveryRate),pr=data.map(d=>d.protRate);
+  const inv=data.map(d=>d.invoices),ci=data.map(d=>d.chargeInv),pi=data.map(d=>d.protInv);
+
+  Chart.defaults.font.family='Arial, sans-serif';Chart.defaults.color='#5a5a56';
+  const destroy=id=>{if(charts[id])charts[id].destroy();};
+  const hO=max=>({indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.x.toFixed(1)+'%'}}},scales:{x:{max,grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{callback:v=>v+'%',font:{size:11}}},y:{grid:{display:false},border:{display:false},ticks:{font:{size:12}}}}});
+
+  destroy('chargesBar');
+  charts['chargesBar']=new Chart(document.getElementById('chargesBar'),{type:'bar',data:{labels:nm,datasets:[{data:dr,backgroundColor:bluePale,borderRadius:3,barThickness:14}]},options:hO(Math.max(70,Math.ceil(Math.max(...dr)/10)*10+10))});
+  destroy('protectionBar');
+  charts['protectionBar']=new Chart(document.getElementById('protectionBar'),{type:'bar',data:{labels:nm,datasets:[{data:pr,backgroundColor:greenPale,borderRadius:3,barThickness:14}]},options:hO(Math.max(60,Math.ceil(Math.max(...pr)/10)*10+10))});
+  destroy('groupedBar');
+  charts['groupedBar']=new Chart(document.getElementById('groupedBar'),{type:'bar',data:{labels:nm,datasets:[{label:'Delivery %',data:dr,backgroundColor:bluePale,borderRadius:3,barThickness:12},{label:'Protection %',data:pr,backgroundColor:greenPale,borderRadius:3,barThickness:12}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:16}},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y.toFixed(1)+'%'}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{font:{size:11}}},y:{grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{callback:v=>v+'%',font:{size:11}}}}}});
+  destroy('stackedBar');
+  charts['stackedBar']=new Chart(document.getElementById('stackedBar'),{type:'bar',data:{labels:nm,datasets:[{label:'Neither',data:inv.map((v,i)=>v-ci[i]-pi[i]+Math.min(ci[i],pi[i])),backgroundColor:'#e2e1db',stack:'s'},{label:'Delivery only',data:ci.map((c,i)=>c-Math.min(c,pi[i])),backgroundColor:bluePale,stack:'s'},{label:'Protection only',data:pi.map((p,i)=>p-Math.min(p,ci[i])),backgroundColor:greenPale,stack:'s'},{label:'Both',data:nm.map((_,i)=>Math.min(ci[i],pi[i])),backgroundColor:blueBase,stack:'s'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:12}},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y+' invoices'}}},scales:{x:{stacked:true,grid:{display:false},border:{display:false},ticks:{font:{size:11}}},y:{stacked:true,grid:{color:rule,lineWidth:.5},border:{display:false},ticks:{font:{size:11}}}}}});
 }
 
-function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
-function fmtPct(n) { return n.toFixed(1) + '%'; }
-function fmtDate(d) { return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : ''; }
-
-// ── Range buttons ──────────────────────────────────────────────────────────
-document.querySelectorAll('.toolbar-btn[data-range]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.toolbar-btn[data-range]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeRange = btn.dataset.range;
-    document.getElementById('date-from').value = '';
-    document.getElementById('date-to').value = '';
+document.querySelectorAll('.toolbar-btn[data-range]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.toolbar-btn[data-range]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');activeRange=btn.dataset.range;
+    document.getElementById('date-from').value='';document.getElementById('date-to').value='';
     render();
   });
 });
-
-document.getElementById('apply-custom').addEventListener('click', () => {
-  const from = document.getElementById('date-from').value;
-  const to   = document.getElementById('date-to').value;
-  if (!from && !to) return;
-  document.querySelectorAll('.toolbar-btn[data-range]').forEach(b => b.classList.remove('active'));
-  activeRange = 'custom';
-  render();
+document.getElementById('apply-custom').addEventListener('click',()=>{
+  const fv=document.getElementById('date-from').value,tv=document.getElementById('date-to').value;
+  if(!fv&&!tv)return;
+  document.querySelectorAll('.toolbar-btn[data-range]').forEach(b=>b.classList.remove('active'));
+  activeRange='custom';render();
 });
 
-// ── Summarize ──────────────────────────────────────────────────────────────
-function summarize(orders) {
-  const sp = {};
-  for (const o of orders) {
-    if (!sp[o.name]) sp[o.name] = {name:o.name, sales:0, charges:0, protection:0, grossProfit:0, merchAmount:0, invoices:0, chargeInv:0, protInv:0};
-    const s = sp[o.name];
-    s.sales       += o.sales;
-    s.charges     += o.charges;
-    s.protection  += o.protection;
-    s.grossProfit += o.grossProfit;
-    s.merchAmount += o.merchAmount;
-    s.invoices    += 1;
-    if (o.charges > 0)    s.chargeInv += 1;
-    if (o.protection > 0) s.protInv   += 1;
-  }
-
-  return Object.values(sp).map(s => ({
-    ...s,
-    totalSales:  s.sales + s.charges + s.protection,
-    avgSale:     (s.sales + s.charges + s.protection) / s.invoices,
-    profitPct:   s.merchAmount ? (s.grossProfit / s.merchAmount * 100) : 0,
-    deliveryRate: s.invoices ? (s.chargeInv / s.invoices * 100) : 0,
-    protRate:     s.invoices ? (s.protInv   / s.invoices * 100) : 0,
-  })).sort((a,b) => b.sales - a.sales);
-}
-
-// ── Render ─────────────────────────────────────────────────────────────────
-function tryRender() {
-  if (storisOrders.length > 0) render();
-}
-
-function render() {
-  let from = null, to = null;
-  if (activeRange === 'custom') {
-    const fv = document.getElementById('date-from').value;
-    const tv = document.getElementById('date-to').value;
-    if (fv) { from = new Date(fv); from.setHours(0,0,0,0); }
-    if (tv) { to   = new Date(tv); to.setHours(23,59,59,999); }
-  } else {
-    [from, to] = getRangeDates(activeRange);
-  }
-
-  const filtered = filterOrders(storisOrders, from, to);
-  const data = summarize(filtered);
-
-  // Date range label
-  const dates = filtered.filter(o => o.date).map(o => o.date);
-  if (dates.length) {
-    const minD = new Date(Math.min(...dates)), maxD = new Date(Math.max(...dates));
-    document.getElementById('date-range-label').textContent = `${fmtDate(minD)} – ${fmtDate(maxD)}`;
-  } else {
-    document.getElementById('date-range-label').textContent = activeRange === 'all' ? 'All available data' : 'Selected period';
-  }
-
-  // Totals
-  const totSales     = data.reduce((a,d) => a + d.totalSales, 0);
-  const totInvoices  = data.reduce((a,d) => a + d.invoices, 0);
-  const totChargeInv = data.reduce((a,d) => a + d.chargeInv, 0);
-  const totProtInv   = data.reduce((a,d) => a + d.protInv,   0);
-  const totGP        = data.reduce((a,d) => a + d.grossProfit, 0);
-  const totMerch     = data.reduce((a,d) => a + d.merchAmount, 0);
-  const totDelRate   = totInvoices ? (totChargeInv / totInvoices * 100) : 0;
-  const totProtRate  = totInvoices ? (totProtInv   / totInvoices * 100) : 0;
-
-  // Cards
-  document.getElementById('card-sales').textContent      = fmt(totSales);
-  document.getElementById('card-sales-sub').textContent  = `${data.length} salespeople · ${totInvoices.toLocaleString()} invoices`;
-  document.getElementById('card-delivery').textContent   = fmtPct(totDelRate);
-  document.getElementById('card-delivery-sub').textContent = `${totChargeInv} of ${totInvoices} invoices`;
-  document.getElementById('card-protection').textContent = fmtPct(totProtRate);
-  document.getElementById('card-protection-sub').textContent = `${totProtInv} of ${totInvoices} invoices`;
-
-  // Table
-  const tbody = document.getElementById('table-body');
-  tbody.innerHTML = '';
-  data.forEach(d => {
-    const dPill = d.deliveryRate >= totDelRate  ? 'pill-blue' : 'pill-red';
-    const pPill = d.protRate     >= totProtRate ? 'pill-blue' : 'pill-red';
-    tbody.innerHTML += `<tr>
-      <td>${d.name}</td>
-      <td>${fmt(d.totalSales)}</td>
-      <td>${fmt(d.avgSale)}</td>
-      <td>${d.profitPct.toFixed(1)}%</td>
-      <td><span class="pill ${dPill}">${fmtPct(d.deliveryRate)}</span></td>
-      <td><span class="pill ${pPill}">${fmtPct(d.protRate)}</span></td>
-    </tr>`;
-  });
-
-  const totProfitPct = totMerch ? (totGP / totMerch * 100) : 0;
-  const totAvg = totInvoices ? (totSales / totInvoices) : 0;
-  document.getElementById('table-foot').innerHTML = `<tr>
-    <td>Total</td>
-    <td>${fmt(totSales)}</td>
-    <td>${fmt(totAvg)}</td>
-    <td>${totProfitPct.toFixed(1)}%</td>
-    <td>${fmtPct(totDelRate)}</td>
-    <td>${fmtPct(totProtRate)}</td>
-  </tr>`;
-
-  // Charts
-  const names = data.map(d => d.name);
-  const delRates = data.map(d => d.deliveryRate);
-  const protRates = data.map(d => d.protRate);
-  const invoices  = data.map(d => d.invoices);
-  const chargeInv = data.map(d => d.chargeInv);
-  const protInv   = data.map(d => d.protInv);
-
-  renderCharts(names, delRates, protRates, invoices, chargeInv, protInv);
-  document.getElementById('report-body').style.display = 'block';
-}
-
-function renderCharts(names, delRates, protRates, invoices, chargeInv, protInv) {
-  Chart.defaults.font.family = 'Arial, sans-serif';
-  Chart.defaults.color = '#5a5a56';
-
-  const hOpts = (max) => ({
-    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-    plugins: { legend:{display:false}, tooltip:{callbacks:{label: ctx => ' '+ctx.parsed.x.toFixed(1)+'%'}} },
-    scales: {
-      x: { max, grid:{color:rule,lineWidth:.5}, border:{display:false}, ticks:{callback:v=>v+'%',font:{size:11}} },
-      y: { grid:{display:false}, border:{display:false}, ticks:{font:{size:12}} }
-    }
-  });
-
-  const destroy = id => { if(charts[id]) { charts[id].destroy(); } };
-
-  destroy('chargesBar');
-  charts['chargesBar'] = new Chart(document.getElementById('chargesBar'), {
-    type: 'bar',
-    data: { labels: names, datasets: [{ data: delRates, backgroundColor: bluePale, borderRadius:3, barThickness:14 }] },
-    options: hOpts(Math.max(70, Math.ceil(Math.max(...delRates)/10)*10+10))
-  });
-
-  destroy('protectionBar');
-  charts['protectionBar'] = new Chart(document.getElementById('protectionBar'), {
-    type: 'bar',
-    data: { labels: names, datasets: [{ data: protRates, backgroundColor: greenPale, borderRadius:3, barThickness:14 }] },
-    options: hOpts(Math.max(60, Math.ceil(Math.max(...protRates)/10)*10+10))
-  });
-
-  destroy('groupedBar');
-  charts['groupedBar'] = new Chart(document.getElementById('groupedBar'), {
-    type: 'bar',
-    data: { labels: names, datasets: [
-      { label:'Delivery %',   data:delRates,  backgroundColor:bluePale,  borderRadius:3, barThickness:12 },
-      { label:'Protection %', data:protRates, backgroundColor:greenPale, borderRadius:3, barThickness:12 }
-    ]},
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:16}}, tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y.toFixed(1)+'%'}} },
-      scales: {
-        x: { grid:{display:false}, border:{display:false}, ticks:{font:{size:11}} },
-        y: { grid:{color:rule,lineWidth:.5}, border:{display:false}, ticks:{callback:v=>v+'%',font:{size:11}} }
-      }
-    }
-  });
-
-  destroy('stackedBar');
-  charts['stackedBar'] = new Chart(document.getElementById('stackedBar'), {
-    type: 'bar',
-    data: { labels: names, datasets: [
-      { label:'Neither',         data: invoices.map((inv,i)=>inv-chargeInv[i]-protInv[i]+Math.min(chargeInv[i],protInv[i])), backgroundColor:'#e2e1db', stack:'s' },
-      { label:'Delivery only',   data: chargeInv.map((c,i)=>c-Math.min(c,protInv[i])),                                        backgroundColor:bluePale,  stack:'s' },
-      { label:'Protection only', data: protInv.map((p,i)=>p-Math.min(p,chargeInv[i])),                                        backgroundColor:greenPale, stack:'s' },
-      { label:'Both',            data: names.map((_,i)=>Math.min(chargeInv[i],protInv[i])),                                   backgroundColor:blueBase,  stack:'s' }
-    ]},
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,font:{size:11},padding:12}}, tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+ctx.parsed.y+' invoices'}} },
-      scales: {
-        x: { stacked:true, grid:{display:false}, border:{display:false}, ticks:{font:{size:11}} },
-        y: { stacked:true, grid:{color:rule,lineWidth:.5}, border:{display:false}, ticks:{font:{size:11}} }
-      }
-    }
-  });
-}
+render();
 </script>
 </body>
 </html>
